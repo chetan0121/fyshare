@@ -1,6 +1,6 @@
-name: Release Linux x64
+name: Release Linux arm64
 
-run-name: Release Linux x64 (${{ github.event.workflow_run.head_sha || github.sha }})
+run-name: Release Linux arm64 (${{ github.event.workflow_run.head_sha || github.sha }})
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: release-linux-x64
+  group: release-linux-arm64
   cancel-in-progress: true
 
 jobs:
@@ -20,7 +20,7 @@ jobs:
     # Allow manual runs from Actions tab, and auto-publish only for successful CI runs from pushes to main.
     if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event == 'push') }}
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-arm64
     timeout-minutes: 20
 
     steps:
@@ -34,7 +34,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: 'pip'
-          cache-dependency-path: .github/workflows/release-linux-x64.yaml
+          cache-dependency-path: .github/workflows/release-linux-arm64.yaml
 
       - name: Install PyInstaller
         run: |
@@ -48,6 +48,7 @@ jobs:
           echo "Source SHA: ${{ github.event.workflow_run.head_sha }}"
           echo "Triggered by branch: ${{ github.event.workflow_run.head_branch }}"
           echo "Runner: $RUNNER_OS"
+          echo "Architecture: $(uname -m)"
           echo "::endgroup::"
 
       - name: Build with PyInstaller
@@ -70,10 +71,10 @@ jobs:
           fi
 
           # Package the contents of the 'dist' directory into a zip file.
-          (cd artifacts/dist && zip -r ../fyshare-linux-x64-shared.zip .)
+          (cd artifacts/dist && zip -r ../fyshare-linux-arm64-shared.zip .)
 
           # Verify that the zip file was created and is not empty.
-          test -s ./artifacts/fyshare-linux-x64-shared.zip || (echo "Failed to create a non-empty zip archive." && exit 1)
+          test -s ./artifacts/fyshare-linux-arm64-shared.zip || (echo "Failed to create a non-empty zip archive." && exit 1)
 
       - name: Log packaged artifact details
         run: |
@@ -84,8 +85,8 @@ jobs:
       - name: Upload artifact snapshot
         uses: actions/upload-artifact@v4
         with:
-          name: fyshare-linux-x64-shared
-          path: artifacts/fyshare-linux-x64-shared.zip
+          name: fyshare-linux-arm64-shared
+          path: artifacts/fyshare-linux-arm64-shared.zip
           if-no-files-found: error
           compression-level: 0
 
@@ -93,7 +94,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          files: artifacts/fyshare-linux-x64-shared.zip
+          files: artifacts/fyshare-linux-arm64-shared.zip
           fail_on_unmatched_files: true
           overwrite_files: true
         env:

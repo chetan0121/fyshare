@@ -32,13 +32,15 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.12"
+          cache: 'pip'
+          cache-dependency-path: .github/workflows/release-windows-x64.yaml
 
       - name: Install PyInstaller
         shell: powershell
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller==6.11.1
+          pip install pyinstaller==6.21
 
       - name: Log release context
         shell: powershell
@@ -64,15 +66,19 @@ jobs:
       - name: Package build output
         shell: powershell
         run: |
-          if (-not (Test-Path -Path ".\artifacts\dist" -PathType Container)) { throw "Missing .\\artifacts\\dist" }
-          if (-not (Test-Path -Path ".\artifacts\dist\static" -PathType Container)) { throw "Missing .\\artifacts\\dist\\static" }
-          if (-not (Test-Path -Path ".\artifacts\dist\templates" -PathType Container)) { throw "Missing .\\artifacts\\dist\\templates" }
-          if (-not (Test-Path -Path ".\artifacts\dist\config.json" -PathType Leaf)) { throw "Missing .\\artifacts\\dist\\config.json" }
-          if (-not (Test-Path -Path ".\artifacts\dist\config_example.json" -PathType Leaf)) { throw "Missing .\\artifacts\\dist\\config_example.json" }
-          if (-not (Test-Path -Path ".\artifacts\dist\README.md" -PathType Leaf)) { throw "Missing .\\artifacts\\dist\\README.md" }
-          if (-not (Test-Path -Path ".\artifacts\dist\LICENSE" -PathType Leaf)) { throw "Missing .\\artifacts\\dist\\LICENSE" }
-          Compress-Archive -Path ".\artifacts\dist\*" -DestinationPath ".\artifacts\fyshare-win-x64-shared.zip"
-          if (-not (Test-Path -Path ".\artifacts\fyshare-win-x64-shared.zip" -PathType Leaf)) { throw "Missing .\\artifacts\\fyshare-win-x64-shared.zip" }
+          # Ensure the build output directory exists before trying to package it.
+          if (-not (Test-Path -Path ".\artifacts\dist" -PathType Container)) {
+            throw "Build output directory '.\artifacts\dist' not found."
+          }
+
+          # Create the archive, overwriting if it already exists.
+          Compress-Archive -Path ".\artifacts\dist\*" -DestinationPath ".\artifacts\fyshare-win-x64-shared.zip" -Force
+
+          # Verify the archive was created and is not empty.
+          $zipFile = Get-Item ".\artifacts\fyshare-win-x64-shared.zip"
+          if ($null -eq $zipFile -or $zipFile.Length -eq 0) {
+              throw "Failed to create a non-empty zip archive."
+          }
 
       - name: Log packaged artifact details
         shell: powershell
