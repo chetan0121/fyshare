@@ -1,26 +1,26 @@
 """
 FyShare : Secure one-time file sharing server
 """
-import os
-import sys
 from pathlib import Path
+import sys
 from core import server, credentials
 from core import load_config, backup_config
 from core.state import FileState, ServerState, StateError
-from core.utils import logger, helper
-
+from core.utils import logger, helper, runtime_info
 
 def get_app_root() -> Path:
-    if getattr(sys, 'frozen', False):
-        # Running as Compiled (using PyInstaller)
+    """Get the root directory of the application
+    
+    Returns the executable directory if frozen, otherwise the script directory
+    """
+    if runtime_info.ran_as_compiled_bin():
         return Path(sys.executable).parent
     else:
-        # Running as Python Script
         return Path(__file__).resolve().parent
 
 def main() -> None:
     # True if run is from github CI
-    FileState.ci_mod = os.getenv("FYSHARE_CI", "0") == "1"
+    FileState.ci_mod = runtime_info.testing_in_ci()
 
     # Get current folder path
     FileState.base_dir = get_app_root()
@@ -82,3 +82,7 @@ def main() -> None:
 # Entry point
 if __name__ == "__main__":
     main()
+    
+    # If compiled and not run from a terminal keep window open
+    if runtime_info.ran_as_compiled_bin() and runtime_info.is_interactive_terminal():
+        input("\nPress Enter to exit...")
