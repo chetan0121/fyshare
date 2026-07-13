@@ -20,7 +20,7 @@ jobs:
     # Allow manual runs from Actions tab, and auto-publish only for successful CI runs from pushes to main.
     if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event == 'push') }}
 
-    runs-on: ubuntu-latest-arm64
+    runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
@@ -28,18 +28,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: 'pip'
-          cache-dependency-path: .github/workflows/release-linux-arm64.yaml
-
-      - name: Install PyInstaller
-        run: |
-          python -m pip install --upgrade pip
-          pip install pyinstaller==6.21
 
       - name: Log release context
         run: |
@@ -51,19 +39,31 @@ jobs:
           echo "Architecture: $(uname -m)"
           echo "::endgroup::"
 
-      - name: Build with PyInstaller
-        run: |
-          echo "::group::Build"
-          pyinstaller \
-            --distpath "artifacts/" \
-            --workpath "artifacts/build" \
-            --clean \
-            --noconfirm \
-            build-configs/FyShare.spec
-          echo "::endgroup::"
+      - name: Build with PyInstaller on ARM64 (Emulated)
+        uses: uraimo/run-on-arch-action@v2
+        with:
+          arch: aarch64
+          distro: ubuntu_latest
+          githubToken: ${{ github.token }}
+          install: |
+            apt-get update && apt-get install -y python3 python3-pip python3-venv zip
+          run: |
+            python3 -m venv venv
+            . venv/bin/activate
+            pip install --upgrade pip
+            pip install pyinstaller==6.21
+            pyinstaller \
+              --distpath "artifacts/" \
+              --workpath "artifacts/build" \
+              --clean \
+              --noconfirm \
+              build-configs/FyShare.spec
 
       - name: Package build output
         run: |
+          # Reclaim ownership of files from the docker container
+          sudo chown -R $USER:$USER artifacts/
+
           # Ensure the build output directory exists before trying to package it.
           if [ ! -d "./artifacts/dist" ]; then
             echo "Build output directory './artifacts/dist' not found."
